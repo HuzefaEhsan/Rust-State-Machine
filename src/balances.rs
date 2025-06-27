@@ -1,6 +1,7 @@
 use crate::support::DispatchResult;
 use num::traits::{CheckedAdd, CheckedSub, Zero};
-use std::{collections::BTreeMap, marker::PhantomData};
+use std::collections::BTreeMap;
+use std::marker::PhantomData;
 
 /// Configuration trait for the Balances pallet.
 /// Tightly coupled to the System pallet by inheriting its configuration.
@@ -50,6 +51,28 @@ impl<T: Config> Pallet<T> {
 		self.balances.insert(caller, new_caller_balance);
 		self.balances.insert(to, new_to_balance);
 
+		Ok(())
+	}
+}
+
+/// An enum representing the dispatchable calls in the Balances pallet.
+pub enum Call<T: Config> {
+	/// A call to transfer funds from the caller to another account.
+	Transfer { to: T::AccountId, amount: T::Balance },
+}
+
+/// Implementation of the dispatch logic for the Balances pallet.
+impl<T: Config> crate::support::Dispatch for Pallet<T> {
+	type Caller = T::AccountId;
+	type Call = Call<T>;
+
+	fn dispatch(&mut self, caller: Self::Caller, call: Self::Call) -> DispatchResult {
+		// Match the call variant and route to the appropriate function.
+		match call {
+			Call::Transfer { to, amount } => {
+				self.transfer(caller, to, amount)?;
+			},
+		}
 		Ok(())
 	}
 }
