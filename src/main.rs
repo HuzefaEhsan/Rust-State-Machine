@@ -24,6 +24,7 @@ mod types {
 }
 
 /// An enum representing all possible external calls to the runtime.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RuntimeCall {
 	/// A call to the `transfer` function in the Balances pallet.
 	BalancesTransfer { to: types::AccountId, amount: types::Balance },
@@ -98,31 +99,40 @@ impl support::Dispatch for Runtime {
 }
 
 fn main() {
+	// Create a new instance of the Runtime.
 	let mut runtime = Runtime::new();
 	let alice = "alice".to_string();
 	let bob = "bob".to_string();
 	let charlie = "charlie".to_string();
 
-	// Set up the genesis state.
+	// Initialize the system with some initial balance.
 	runtime.balances.set_balance(&alice, 100);
 
-	// --- Block 1 Execution (Manual Simulation) ---
-	runtime.system.inc_block_number();
-	assert_eq!(runtime.system.block_number(), 1);
+	// Create a new block to be executed.
+	let block_1 = types::Block {
+		header: support::Header { block_number: 1 },
+		extrinsics: vec![
+			support::Extrinsic {
+				caller: alice.clone(),
+				call: RuntimeCall::BalancesTransfer { to: bob.clone(), amount: 30 },
+			},
+			support::Extrinsic {
+				caller: alice.clone(),
+				call: RuntimeCall::BalancesTransfer { to: charlie.clone(), amount: 20 },
+			},
+		],
+	};
 
-	// Transaction 1: Alice -> Bob.
-	runtime.system.inc_nonce(&alice);
-	let _res = runtime
-		.balances
-		.transfer(alice.clone(), bob, 30)
-		.map_err(|e| eprintln!("[Transaction 1 Failed] {}", e));
+	// Execute the block.
+	runtime.execute_block(block_1).expect("invalid block");
 
-	// Transaction 2: Alice -> Charlie.
-	runtime.system.inc_nonce(&alice);
-	let _res = runtime
-		.balances
-		.transfer(alice.clone(), charlie, 20)
-		.map_err(|e| eprintln!("[Transaction 2 Failed] {}", e));
-
+	// Simply print the debug format of our runtime state.
 	println!("{:#?}", runtime);
+
+	// Verify the final state, just like we did in our manual simulation.
+	assert_eq!(runtime.system.block_number(), 1);
+	assert_eq!(runtime.system.nonce(&alice), 2);
+	assert_eq!(runtime.balances.balance(&alice), 50);
+	assert_eq!(runtime.balances.balance(&bob), 30);
+	assert_eq!(runtime.balances.balance(&charlie), 20);
 }
