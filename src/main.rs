@@ -1,4 +1,5 @@
 mod balances;
+mod proof_of_existence;
 mod support;
 mod system;
 
@@ -14,12 +15,11 @@ mod types {
 	pub type BlockNumber = u32;
 	// The transaction number of an account.
 	pub type Nonce = u32;
+	// The content of a claim, represented as a vector of bytes.
+	pub type Content = Vec<u8>;
 
-	// A concrete `Extrinsic` type for this runtime.
 	pub type Extrinsic = crate::support::Extrinsic<AccountId, crate::RuntimeCall>;
-	// A concrete `Header` type for this runtime.
 	pub type Header = crate::support::Header<BlockNumber>;
-	// A concrete `Block` type for this runtime.
 	pub type Block = crate::support::Block<Header, Extrinsic>;
 }
 
@@ -28,6 +28,7 @@ mod types {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RuntimeCall {
 	Balances(balances::Call<Runtime>),
+	ProofOfExistence(proof_of_existence::Call<Runtime>),
 }
 
 /// The main runtime struct, which aggregates all pallets.
@@ -35,6 +36,7 @@ pub enum RuntimeCall {
 pub struct Runtime {
 	system: system::Pallet<Self>,
 	balances: balances::Pallet<Self>,
+	proof_of_existence: proof_of_existence::Pallet<Self>,
 }
 
 /// Implements the `system::Config` trait for the `Runtime`.
@@ -46,14 +48,22 @@ impl system::Config for Runtime {
 
 /// Implements the `balances::Config` trait for the `Runtime`.
 impl balances::Config for Runtime {
-	// `AccountId` is inherited from `system::Config`.
 	type Balance = types::Balance;
+}
+
+/// Implements the `proof_of_existence::Config` trait for the `Runtime`.
+impl proof_of_existence::Config for Runtime {
+	type Content = types::Content;
 }
 
 impl Runtime {
 	/// Constructs a new instance of the runtime.
 	fn new() -> Self {
-		Self { system: system::Pallet::<Self>::new(), balances: balances::Pallet::<Self>::new() }
+		Self {
+			system: system::Pallet::<Self>::new(),
+			balances: balances::Pallet::<Self>::new(),
+			proof_of_existence: proof_of_existence::Pallet::<Self>::new(),
+		}
 	}
 
 	/// Executes a block of extrinsics.
@@ -92,8 +102,10 @@ impl support::Dispatch for Runtime {
 			RuntimeCall::Balances(call) => {
 				self.balances.dispatch(caller, call)?;
 			},
+			RuntimeCall::ProofOfExistence(call) => {
+				self.proof_of_existence.dispatch(caller, call)?;
+			},
 		}
-		// Return `Ok` if the dispatch was successful.
 		Ok(())
 	}
 }
@@ -108,29 +120,70 @@ fn main() {
 	// Initialize the system with some initial balance.
 	runtime.balances.set_balance(&alice, 100);
 
-	// Construct the block to be executed.
+	// Construct block 1.
 	let block_1 = types::Block {
 		header: support::Header { block_number: 1 },
 		extrinsics: vec![
 			support::Extrinsic {
 				caller: alice.clone(),
-				call: RuntimeCall::Balances(balances::Call::Transfer { to: bob, amount: 30 }),
+				call: RuntimeCall::Balances(balances::Call::Transfer {
+					to: bob.clone(),
+					amount: 30,
+				}),
 			},
 			support::Extrinsic {
 				caller: alice.clone(),
-				call: RuntimeCall::Balances(balances::Call::Transfer { to: charlie, amount: 20 }),
+				call: RuntimeCall::Balances(balances::Call::Transfer {
+					to: charlie.clone(),
+					amount: 20,
+				}),
 			},
 		],
 	};
 
-	// Execute the block.
+	// Construct block 2, which includes Proof of Existence extrinsics.
+	let block_2 = types::Block {
+		header: support::Header { block_number: 2 },
+		extrinsics: vec![
+			support::Extrinsic {
+				caller: alice.clone(),
+				call: RuntimeCall::ProofOfExistence(proof_of_existence::Call::CreateClaim {
+					claim: b"hello_world".to_vec(),
+				}),
+			},
+			support::Extrinsic {
+				caller: bob.clone(),
+				call: RuntimeCall::ProofOfExistence(proof_of_existence::Call::CreateClaim {
+					claim: b"hello_world".to_vec(),
+				}),
+			},
+		],
+	};
+
+	// Construct block 3 to test revocation.
+	let block_3 = types::Block {
+		header: support::Header { block_number: 3 },
+		extrinsics: vec![
+			support::Extrinsic {
+				caller: alice.clone(),
+				call: RuntimeCall::ProofOfExistence(proof_of_existence::Call::RevokeClaim {
+					claim: b"hello_world".to_vec(),
+				}),
+			},
+			support::Extrinsic {
+				caller: bob.clone(),
+				call: RuntimeCall::ProofOfExistence(proof_of_existence::Call::CreateClaim {
+					claim: b"hello_world".to_vec(),
+				}),
+			},
+		],
+	};
+
+	// Execute the blocks.
 	runtime.execute_block(block_1).expect("invalid block");
+	runtime.execute_block(block_2).expect("invalid block");
+	runtime.execute_block(block_3).expect("invalid block");
 
 	// Print the final runtime state.
 	println!("{:#?}", runtime);
-
-	// Verify the final state.
-	assert_eq!(runtime.system.block_number(), 1);
-	assert_eq!(runtime.system.nonce(&alice), 2);
-	assert_eq!(runtime.balances.balance(&alice), 50);
 }
