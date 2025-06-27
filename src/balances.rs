@@ -1,6 +1,5 @@
 use num::traits::{CheckedAdd, CheckedSub, Zero};
-use std::collections::BTreeMap;
-use std::marker::PhantomData;
+use std::{collections::BTreeMap, marker::PhantomData};
 
 /// The configuration trait for the Balances pallet.
 pub trait Config {
@@ -38,7 +37,8 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Transfer `amount` from one account to another.
-	/// This function verifies that `from` has at least `amount` balance to transfer, and that no mathematical overflows occur.
+	/// This function verifies that `from` has at least `amount` balance to transfer, and that no
+	/// mathematical overflows occur.
 	pub fn transfer(
 		&mut self,
 		caller: T::AccountId,

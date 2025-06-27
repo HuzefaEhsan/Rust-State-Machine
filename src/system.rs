@@ -1,6 +1,5 @@
 use num::traits::One;
-use std::collections::BTreeMap;
-use std::marker::PhantomData;
+use std::{collections::BTreeMap, marker::PhantomData};
 
 /// The configuration trait for the System pallet.
 /// This trait defines the associated types that the pallet depends on.
