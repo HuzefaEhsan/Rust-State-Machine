@@ -1,9 +1,7 @@
 mod balances;
 mod system;
 
-// These are the concrete types we will use in our simple state machine.
-// Modules are configured for these types directly, and they satisfy all of our
-// trait requirements.
+// Concrete types used throughout this runtime.
 mod types {
 	pub type AccountId = String;
 	pub type Balance = u128;
@@ -11,30 +9,29 @@ mod types {
 	pub type Nonce = u32;
 }
 
-// This is our main Runtime.
-// It accumulates all of the different pallets we want to use.
+// The main runtime struct.
+// Accumulates all of the pallets to be used in the state machine.
 #[derive(Debug)]
 pub struct Runtime {
 	system: system::Pallet<Self>,
-	// The balances pallet is now also configured with the Runtime itself.
 	balances: balances::Pallet<Self>,
 }
 
-// Implement the `Config` trait for the System pallet.
+// Implementation of the `system::Config` trait for the Runtime.
 impl system::Config for Runtime {
 	type AccountId = types::AccountId;
 	type BlockNumber = types::BlockNumber;
 	type Nonce = types::Nonce;
 }
 
-// Implement the `Config` trait for the Balances pallet.
+// Implementation of the `balances::Config` trait for the Runtime.
 impl balances::Config for Runtime {
-	type AccountId = types::AccountId;
+	// `AccountId` is inherited from `system::Config`, so it is not defined here.
 	type Balance = types::Balance;
 }
 
 impl Runtime {
-	// Create a new instance of the main Runtime, by creating a new instance of each pallet.
+	// Create a new instance of the main Runtime.
 	fn new() -> Self {
 		Self { system: system::Pallet::<Self>::new(), balances: balances::Pallet::<Self>::new() }
 	}
@@ -48,18 +45,18 @@ fn main() {
 
 	runtime.balances.set_balance(&alice, 100);
 
-	// start emulating a block
+	// Emulate a block execution.
 	runtime.system.inc_block_number();
 	assert_eq!(runtime.system.block_number(), 1);
 
-	// first transaction
+	// First transaction.
 	runtime.system.inc_nonce(&alice);
 	let _res = runtime
 		.balances
 		.transfer(alice.clone(), bob, 30)
 		.map_err(|e| eprintln!("{}", e));
 
-	// second transaction
+	// Second transaction.
 	runtime.system.inc_nonce(&alice);
 	let _res = runtime.balances.transfer(alice, charlie, 20).map_err(|e| eprintln!("{}", e));
 
