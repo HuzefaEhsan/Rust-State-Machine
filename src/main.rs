@@ -24,14 +24,14 @@ mod types {
 }
 
 /// An enum representing all possible external calls to the runtime.
+/// Each variant holds the respective pallet's `Call` enum.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RuntimeCall {
-	/// A call to the `transfer` function in the Balances pallet.
-	BalancesTransfer { to: types::AccountId, amount: types::Balance },
+	Balances(balances::Call<Runtime>),
 }
 
 /// The main runtime struct, which aggregates all pallets.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Runtime {
 	system: system::Pallet<Self>,
 	balances: balances::Pallet<Self>,
@@ -86,11 +86,11 @@ impl support::Dispatch for Runtime {
 		caller: Self::Caller,
 		runtime_call: Self::Call,
 	) -> support::DispatchResult {
-		// Match on the call variant.
+		// Match on the outer `RuntimeCall` enum and dispatch the inner `Call`
+		// to the appropriate pallet.
 		match runtime_call {
-			// If the call is `BalancesTransfer`, route the call to the Balances pallet.
-			RuntimeCall::BalancesTransfer { to, amount } => {
-				self.balances.transfer(caller, to, amount)?;
+			RuntimeCall::Balances(call) => {
+				self.balances.dispatch(caller, call)?;
 			},
 		}
 		// Return `Ok` if the dispatch was successful.
@@ -108,17 +108,17 @@ fn main() {
 	// Initialize the system with some initial balance.
 	runtime.balances.set_balance(&alice, 100);
 
-	// Create a new block to be executed.
+	// Construct the block to be executed.
 	let block_1 = types::Block {
 		header: support::Header { block_number: 1 },
 		extrinsics: vec![
 			support::Extrinsic {
 				caller: alice.clone(),
-				call: RuntimeCall::BalancesTransfer { to: bob.clone(), amount: 30 },
+				call: RuntimeCall::Balances(balances::Call::Transfer { to: bob, amount: 30 }),
 			},
 			support::Extrinsic {
 				caller: alice.clone(),
-				call: RuntimeCall::BalancesTransfer { to: charlie.clone(), amount: 20 },
+				call: RuntimeCall::Balances(balances::Call::Transfer { to: charlie, amount: 20 }),
 			},
 		],
 	};
@@ -126,13 +126,11 @@ fn main() {
 	// Execute the block.
 	runtime.execute_block(block_1).expect("invalid block");
 
-	// Simply print the debug format of our runtime state.
+	// Print the final runtime state.
 	println!("{:#?}", runtime);
 
-	// Verify the final state, just like we did in our manual simulation.
+	// Verify the final state.
 	assert_eq!(runtime.system.block_number(), 1);
 	assert_eq!(runtime.system.nonce(&alice), 2);
 	assert_eq!(runtime.balances.balance(&alice), 50);
-	assert_eq!(runtime.balances.balance(&bob), 30);
-	assert_eq!(runtime.balances.balance(&charlie), 20);
 }

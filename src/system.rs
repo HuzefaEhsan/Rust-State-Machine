@@ -1,20 +1,18 @@
 use num::traits::One;
 use std::{collections::BTreeMap, marker::PhantomData};
 
-/// The configuration trait for the System pallet.
-/// This trait defines the associated types that the pallet depends on.
+/// Configuration trait for the System pallet.
 pub trait Config {
-	/// The account identifier type.
+	/// The type used to identify a user account.
 	type AccountId: Ord + Clone;
-	/// The block number type.
+	/// The type used to represent a block number.
 	type BlockNumber: From<u8> + One + std::ops::AddAssign + Copy;
-	/// The nonce type.
+	/// The type used to represent a transaction number.
 	type Nonce: From<u8> + One + std::ops::Add<Output = Self::Nonce> + Copy;
 }
 
-/// This is the System Pallet.
-/// It handles low level state needed for your blockchain.
-#[derive(Debug)]
+/// The System pallet, for managing core system state.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Pallet<T: Config> {
 	/// The current block number.
 	block_number: T::BlockNumber,
@@ -25,7 +23,7 @@ pub struct Pallet<T: Config> {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Create a new instance of the System Pallet.
+	/// Constructs a new instance of this pallet.
 	pub fn new() -> Self {
 		Self {
 			block_number: T::BlockNumber::from(0),
@@ -44,14 +42,12 @@ impl<T: Config> Pallet<T> {
 		*self.nonce.get(who).unwrap_or(&T::Nonce::from(0))
 	}
 
-	/// This function can be used to increment the block number.
-	/// Increases the block number by one.
+	/// Increments the block number by one.
 	pub fn inc_block_number(&mut self) {
 		self.block_number += T::BlockNumber::one();
 	}
 
-	/// Increment the nonce of an account. This helps us keep track of how many transactions each
-	/// account has made.
+	/// Increments the nonce of an account.
 	pub fn inc_nonce(&mut self, who: &T::AccountId) {
 		let nonce = self.nonce(who);
 		let new_nonce = nonce + T::Nonce::one();
@@ -63,7 +59,7 @@ impl<T: Config> Pallet<T> {
 mod test {
 	use super::{Config, Pallet};
 
-	// Define a mock struct for testing purposes.
+	// Mock struct for testing purposes.
 	struct TestConfig;
 
 	// Implement the Config trait for the mock struct.

@@ -1,7 +1,6 @@
 use crate::support::DispatchResult;
 use num::traits::{CheckedAdd, CheckedSub, Zero};
-use std::collections::BTreeMap;
-use std::marker::PhantomData;
+use std::{collections::BTreeMap, marker::PhantomData};
 
 /// Configuration trait for the Balances pallet.
 /// Tightly coupled to the System pallet by inheriting its configuration.
@@ -11,7 +10,7 @@ pub trait Config: crate::system::Config {
 }
 
 /// The Balances pallet, for managing account balances.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Pallet<T: Config> {
 	// A mapping from account IDs to their balances.
 	balances: BTreeMap<T::AccountId, T::Balance>,
@@ -56,6 +55,7 @@ impl<T: Config> Pallet<T> {
 }
 
 /// An enum representing the dispatchable calls in the Balances pallet.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Call<T: Config> {
 	/// A call to transfer funds from the caller to another account.
 	Transfer { to: T::AccountId, amount: T::Balance },
