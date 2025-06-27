@@ -1,11 +1,12 @@
+use crate::support::DispatchResult;
 use num::traits::{CheckedAdd, CheckedSub, Zero};
 use std::{collections::BTreeMap, marker::PhantomData};
 
 /// Configuration trait for the Balances pallet.
-/// This pallet is tightly coupled to the System pallet by inheriting its configuration.
+/// Tightly coupled to the System pallet by inheriting its configuration.
 pub trait Config: crate::system::Config {
 	/// The type used to represent the balance of an account.
-	type Balance: Zero + CheckedSub + CheckedAdd + Copy;
+	type Balance: Zero + CheckedAdd + CheckedSub + Copy;
 }
 
 /// The Balances pallet, for managing account balances.
@@ -17,31 +18,29 @@ pub struct Pallet<T: Config> {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Constructs a new instance of the balances module.
+	/// Constructs a new instance of this pallet.
 	pub fn new() -> Self {
 		Self { balances: BTreeMap::new(), _phantom: PhantomData }
 	}
 
-	/// Set the balance of an account `who` to some `amount`.
+	/// Set the balance of an account.
 	pub fn set_balance(&mut self, who: &T::AccountId, amount: T::Balance) {
 		self.balances.insert(who.clone(), amount);
 	}
 
-	/// Get the balance of an account `who`.
-	/// If the account has no stored balance, returns zero.
+	/// Get the balance of an account.
+	/// Returns zero if the account has no stored balance.
 	pub fn balance(&self, who: &T::AccountId) -> T::Balance {
 		*self.balances.get(who).unwrap_or(&T::Balance::zero())
 	}
 
 	/// Transfer `amount` from one account to another.
-	/// This function verifies that `from` has at least `amount` balance to transfer,
-	/// and that no mathematical overflows occur.
 	pub fn transfer(
 		&mut self,
 		caller: T::AccountId,
 		to: T::AccountId,
 		amount: T::Balance,
-	) -> Result<(), &'static str> {
+	) -> DispatchResult {
 		let caller_balance = self.balance(&caller);
 		let to_balance = self.balance(&to);
 
@@ -57,7 +56,7 @@ impl<T: Config> Pallet<T> {
 
 #[cfg(test)]
 mod tests {
-	use crate::system;
+	use crate::{balances, system};
 
 	// Mock struct for testing purposes.
 	struct TestConfig;
@@ -70,13 +69,13 @@ mod tests {
 	}
 
 	// Implement the Balances pallet's `Config` for the test struct.
-	impl crate::balances::Config for TestConfig {
+	impl balances::Config for TestConfig {
 		type Balance = u128;
 	}
 
 	#[test]
 	fn init_balances() {
-		let mut balances = crate::balances::Pallet::<TestConfig>::new();
+		let mut balances = balances::Pallet::<TestConfig>::new();
 
 		assert_eq!(balances.balance(&"alice".to_string()), 0);
 		balances.set_balance(&"alice".to_string(), 100);
@@ -86,7 +85,7 @@ mod tests {
 
 	#[test]
 	fn transfer_balance() {
-		let mut balances = crate::balances::Pallet::<TestConfig>::new();
+		let mut balances = balances::Pallet::<TestConfig>::new();
 
 		assert_eq!(
 			balances.transfer("alice".to_string(), "bob".to_string(), 51),
