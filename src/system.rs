@@ -1,24 +1,26 @@
+use num::traits::One;
 use std::collections::BTreeMap;
-
-// --- new type definitions ---
-pub type AccountId = String;
-pub type BlockNumber = u32;
-pub type Nonce = u32;
 
 /// This is the System Pallet.
 /// It handles low level state needed for your blockchain.
 #[derive(Debug)]
-pub struct Pallet {
+pub struct Pallet<AccountId, BlockNumber, Nonce> {
 	/// The current block number.
 	block_number: BlockNumber,
 	/// A map from an account to their nonce.
 	nonce: BTreeMap<AccountId, Nonce>,
 }
 
-impl Pallet {
+impl<AccountId, BlockNumber, Nonce> Pallet<AccountId, BlockNumber, Nonce>
+where
+	AccountId: Ord + Clone,
+	// CORRECTED TRAIT BOUNDS: Added `One` and `AddAssign` for robust incrementing.
+	BlockNumber: From<u8> + One + std::ops::AddAssign + Copy,
+	Nonce: From<u8> + One + std::ops::Add<Output = Nonce> + Copy,
+{
 	/// Create a new instance of the System Pallet.
 	pub fn new() -> Self {
-		Self { block_number: 0, nonce: BTreeMap::new() }
+		Self { block_number: BlockNumber::from(0), nonce: BTreeMap::new() }
 	}
 
 	/// Get the current block number.
@@ -26,17 +28,23 @@ impl Pallet {
 		self.block_number
 	}
 
-	// This function can be used to increment the block number.
-	// Increases the block number by one.
-	pub fn inc_block_number(&mut self) {
-		self.block_number += 1;
+	/// Get the nonce of an account.
+	pub fn nonce(&self, who: &AccountId) -> Nonce {
+		*self.nonce.get(who).unwrap_or(&Nonce::from(0))
 	}
 
-	// Increment the nonce of an account. This helps us keep track of how many transactions each
-	// account has made.
+	/// This function can be used to increment the block number.
+	/// Increases the block number by one.
+	pub fn inc_block_number(&mut self) {
+		// CORRECTED IMPLEMENTATION: Use the `One` trait for clarity and correctness.
+		self.block_number += BlockNumber::one();
+	}
+
+	/// Increment the nonce of an account. This helps us keep track of how many transactions each
+	/// account has made.
 	pub fn inc_nonce(&mut self, who: &AccountId) {
-		let nonce = *self.nonce.get(who).unwrap_or(&0);
-		let new_nonce = nonce + 1;
+		let nonce = self.nonce(who);
+		let new_nonce = nonce + Nonce::one();
 		self.nonce.insert(who.clone(), new_nonce);
 	}
 }
@@ -45,12 +53,13 @@ impl Pallet {
 mod test {
 	#[test]
 	fn init_system() {
-		let mut system = super::Pallet::new();
+		// When creating an instance of `Pallet`, we explicitly define the types we use.
+		let mut system = super::Pallet::<String, u32, u32>::new();
 		system.inc_block_number();
 		system.inc_nonce(&"alice".to_string());
 
 		assert_eq!(system.block_number(), 1);
-		assert_eq!(system.nonce.get("alice"), Some(&1));
-		assert_eq!(system.nonce.get("bob"), None);
+		assert_eq!(system.nonce(&"alice".to_string()), 1);
+		assert_eq!(system.nonce(&"bob".to_string()), 0);
 	}
 }
