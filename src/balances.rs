@@ -14,6 +14,7 @@ pub trait Config: crate::system::Config {
 pub struct Pallet<T: Config> {
 	// A mapping from account IDs to their balances.
 	balances: BTreeMap<T::AccountId, T::Balance>,
+	// A marker for the generic type `T`.
 	_phantom: PhantomData<T>,
 }
 
@@ -33,7 +34,14 @@ impl<T: Config> Pallet<T> {
 	pub fn balance(&self, who: &T::AccountId) -> T::Balance {
 		*self.balances.get(who).unwrap_or(&T::Balance::zero())
 	}
+}
 
+/// The dispatchable functions of the Balances pallet.
+#[macros::call]
+impl<T: Config> Pallet<T>
+where
+	T: Config,
+{
 	/// Transfer `amount` from one account to another.
 	pub fn transfer(
 		&mut self,
@@ -50,29 +58,6 @@ impl<T: Config> Pallet<T> {
 		self.balances.insert(caller, new_caller_balance);
 		self.balances.insert(to, new_to_balance);
 
-		Ok(())
-	}
-}
-
-/// An enum representing the dispatchable calls in the Balances pallet.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Call<T: Config> {
-	/// A call to transfer funds from the caller to another account.
-	Transfer { to: T::AccountId, amount: T::Balance },
-}
-
-/// Implementation of the dispatch logic for the Balances pallet.
-impl<T: Config> crate::support::Dispatch for Pallet<T> {
-	type Caller = T::AccountId;
-	type Call = Call<T>;
-
-	fn dispatch(&mut self, caller: Self::Caller, call: Self::Call) -> DispatchResult {
-		// Match the call variant and route to the appropriate function.
-		match call {
-			Call::Transfer { to, amount } => {
-				self.transfer(caller, to, amount)?;
-			},
-		}
 		Ok(())
 	}
 }

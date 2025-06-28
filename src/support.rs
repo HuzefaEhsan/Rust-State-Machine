@@ -1,8 +1,8 @@
 /// A generic representation of a blockchain block.
 pub struct Block<Header, Extrinsic> {
-	/// The block header.
+	/// The block header, containing metadata about the block.
 	pub header: Header,
-	/// A list of extrinsics contained in the block.
+	/// The list of extrinsics, representing state transitions to be executed.
 	pub extrinsics: Vec<Extrinsic>,
 }
 
@@ -12,23 +12,25 @@ pub struct Header<BlockNumber> {
 	pub block_number: BlockNumber,
 }
 
-/// A transaction, or "extrinsic," from outside the blockchain.
+/// An "extrinsic," representing an external message from outside the blockchain.
+///
+/// Contains the caller and the specific call to be executed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Extrinsic<Caller, Call> {
 	pub caller: Caller,
 	pub call: Call,
 }
 
-/// A result type for dispatchable functions.
+/// A result type for dispatchable functions within the runtime.
 pub type DispatchResult = Result<(), &'static str>;
 
-/// A trait for dispatching extrinsics.
+/// A trait for dispatching extrinsics to the appropriate runtime function.
 pub trait Dispatch {
-	/// The caller of the extrinsic.
+	/// The type representing the caller of the extrinsic.
 	type Caller;
-	/// The `Call` to be executed.
+	/// The type representing the `Call` to be executed.
 	type Call;
 
-	/// Dispatches a call on behalf of a caller.
+	/// Dispatches a `call` on behalf of a `caller`.
 	fn dispatch(&mut self, caller: Self::Caller, call: Self::Call) -> DispatchResult;
 }

@@ -14,6 +14,7 @@ pub trait Config: crate::system::Config {
 pub struct Pallet<T: Config> {
 	/// A mapping from the content to the account that claimed it.
 	claims: BTreeMap<T::Content, T::AccountId>,
+	/// A marker for the generic type `T`.
 	_phantom: PhantomData<T>,
 }
 
@@ -27,7 +28,14 @@ impl<T: Config> Pallet<T> {
 	pub fn get_claim(&self, claim: &T::Content) -> Option<&T::AccountId> {
 		self.claims.get(claim)
 	}
+}
 
+/// The dispatchable functions of the Proof of Existence pallet.
+#[macros::call]
+impl<T: Config> Pallet<T>
+where
+	T: Config,
+{
 	/// Create a new claim on behalf of the `caller`.
 	///
 	/// Returns an error if the claim has already been made.
@@ -53,43 +61,14 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-/// An enum representing the dispatchable calls in this pallet.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Call<T: Config> {
-	/// Creates a new claim.
-	CreateClaim { claim: T::Content },
-	/// Revokes an existing claim.
-	RevokeClaim { claim: T::Content },
-}
-
-/// Implementation of the dispatch logic for this pallet.
-impl<T: Config> crate::support::Dispatch for Pallet<T> {
-	type Caller = T::AccountId;
-	type Call = Call<T>;
-
-	fn dispatch(&mut self, caller: Self::Caller, call: Self::Call) -> DispatchResult {
-		// Match the call variant and route to the appropriate function.
-		match call {
-			Call::CreateClaim { claim } => {
-				self.create_claim(caller, claim)?;
-			},
-			Call::RevokeClaim { claim } => {
-				self.revoke_claim(caller, claim)?;
-			},
-		}
-		Ok(())
-	}
-}
-
 #[cfg(test)]
 mod test {
-	use super::{Config, Pallet};
-	use crate::system;
+	use crate::{proof_of_existence as poe, system};
 
 	// Mock struct for testing purposes.
 	struct TestConfig;
 
-	impl Config for TestConfig {
+	impl poe::Config for TestConfig {
 		type Content = &'static str;
 	}
 
@@ -101,15 +80,15 @@ mod test {
 
 	#[test]
 	fn basic_proof_of_existence() {
-		let mut poe = Pallet::<TestConfig>::new();
-		assert_eq!(poe.get_claim(&"Hello, world!"), None);
-		assert_eq!(poe.create_claim("alice", "Hello, world!"), Ok(()));
-		assert_eq!(poe.get_claim(&"Hello, world!"), Some(&"alice"));
+		let mut poe_pallet = poe::Pallet::<TestConfig>::new();
+		assert_eq!(poe_pallet.get_claim(&"Hello, world!"), None);
+		assert_eq!(poe_pallet.create_claim("alice", "Hello, world!"), Ok(()));
+		assert_eq!(poe_pallet.get_claim(&"Hello, world!"), Some(&"alice"));
 		assert_eq!(
-			poe.create_claim("bob", "Hello, world!"),
+			poe_pallet.create_claim("bob", "Hello, world!"),
 			Err("this content is already claimed")
 		);
-		assert_eq!(poe.revoke_claim("alice", "Hello, world!"), Ok(()));
-		assert_eq!(poe.create_claim("bob", "Hello, world!"), Ok(()));
+		assert_eq!(poe_pallet.revoke_claim("alice", "Hello, world!"), Ok(()));
+		assert_eq!(poe_pallet.create_claim("bob", "Hello, world!"), Ok(()));
 	}
 }
